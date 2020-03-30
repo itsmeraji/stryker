@@ -45,13 +45,21 @@ export default class BabelParser {
 
   public getNodes(ast: types.File): NodeWithParent[] {
     const nodes: NodeWithParent[] = [];
+    const excludedExpressions = this.excludedExpressions;
 
     traverse(ast, {
       enter(path: NodePath<types.Node>) {
         const node: NodeWithParent = path.node;
         node.parent = path.parent as any;
-        Object.freeze(node);
-        nodes.push(node);
+        if (excludedExpressions.some(excludedExpression => (
+          (node.type === 'AssignmentExpression' && node.left && node.left.property && node.left.property.name && node.left.property.name.includes(excludedExpression)) || // in case of object property - eg., xx.propTypes = {}
+          (node.type === 'JSXAttribute' && typeof node.name === 'object' && node.name && node.name.name.includes(excludedExpression)) // in case of component prop - eg., <xx propName={true} ...>
+        ))) {
+          path.remove();
+        } else {
+          Object.freeze(node);
+          nodes.push(node);
+        }
       }
     });
 
